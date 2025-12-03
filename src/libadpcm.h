@@ -8,7 +8,6 @@
 #ifndef LIBADPCM_H
 #define LIBADPCM_H
 
-/* Adjust this include if your environment uses a different path. */
 #include <x68k/iocs.h>
 
 #ifdef __cplusplus
@@ -35,38 +34,7 @@ typedef enum {
 } adpcm_out_t;
 
 /* Return approximate sampling frequency in Hz for a given rate. */
-static unsigned long adpcm_rate_hz(adpcm_rate_t rate);
-
-/* Return approximate ADPCM bytes required for the given duration. */
-static adpcm_size_t adpcm_bytes_for_seconds(adpcm_rate_t rate,
-                                            unsigned int seconds);
-
-/* Record ADPCM data into dst (blocking until finished).
- * Returns number of bytes written on success, or -1 on error.
- * monitor: output mode during recording (for monitoring).
- */
-static long adpcm_record_blocking(void        *dst,
-                                  adpcm_size_t bytes,
-                                  adpcm_rate_t rate,
-                                  adpcm_out_t  monitor);
-
-/* Play ADPCM data from src (blocking until finished).
- * Returns number of bytes played on success, or -1 on error.
- */
-static long adpcm_play_blocking(const void   *src,
-                                adpcm_size_t  bytes,
-                                adpcm_rate_t  rate,
-                                adpcm_out_t   out_mode);
-
-/* Return non-zero if ADPCM device is busy (recording or playing). */
-static int  adpcm_is_busy(void);
-
-/* Force stop of ADPCM (recording or playback). */
-static void adpcm_stop(void);
-
-/* ---- implementation ---- */
-
-static unsigned long adpcm_rate_hz(adpcm_rate_t rate)
+static inline unsigned long adpcm_rate_hz(adpcm_rate_t rate)
 {
   switch (rate) {
   case ADPCM_RATE_3K9:
@@ -84,17 +52,17 @@ static unsigned long adpcm_rate_hz(adpcm_rate_t rate)
 }
 
 /* 4-bit ADPCM: 2 samples per byte, approximate size. */
-static adpcm_size_t adpcm_bytes_for_seconds(adpcm_rate_t rate,
-                                            unsigned int seconds)
+static inline adpcm_size_t adpcm_bytes_for_seconds(adpcm_rate_t rate,
+                                                   unsigned int seconds)
 {
   unsigned long hz = adpcm_rate_hz(rate);
   unsigned long samples = hz * (unsigned long)seconds;
   return (adpcm_size_t)((samples + 1UL) / 2UL);
 }
 
-/* Build IOCS ADPCM mode word: [10:8]=rate, [1:0]=out. */
-static unsigned short adpcm_make_mode(adpcm_rate_t rate,
-                                      adpcm_out_t  out_mode)
+/* Internal helper: build IOCS ADPCM mode word: [10:8]=rate, [1:0]=out. */
+static inline unsigned short adpcm_make_mode(adpcm_rate_t rate,
+                                             adpcm_out_t  out_mode)
 {
   unsigned short mode = 0;
 
@@ -107,23 +75,27 @@ static unsigned short adpcm_make_mode(adpcm_rate_t rate,
   return mode;
 }
 
-static int adpcm_is_busy(void)
+/* Return non-zero if ADPCM device is busy (recording or playing). */
+static inline int adpcm_is_busy(void)
 {
   long st = _iocs_adpcmsns();
   return (st != 0L);
 }
 
-static void adpcm_stop(void)
+/* Force stop of ADPCM (recording or playback). */
+static inline void adpcm_stop(void)
 {
   /* 0: stop ADPCM input/output */
   _iocs_adpcmmod(0);
 }
 
-/* Blocking ADPCM record using IOCS ADPCM input call. */
-static long adpcm_record_blocking(void        *dst,
-                                  adpcm_size_t bytes,
-                                  adpcm_rate_t rate,
-                                  adpcm_out_t  monitor)
+/* Blocking ADPCM record using IOCS ADPCM input call.
+ * Returns number of bytes written on success, or -1 on error.
+ */
+static inline long adpcm_record_blocking(void        *dst,
+                                         adpcm_size_t bytes,
+                                         adpcm_rate_t rate,
+                                         adpcm_out_t  monitor)
 {
   unsigned short mode;
 
@@ -142,11 +114,13 @@ static long adpcm_record_blocking(void        *dst,
   return (long)bytes;
 }
 
-/* Blocking ADPCM playback using IOCS ADPCM output call. */
-static long adpcm_play_blocking(const void   *src,
-                                adpcm_size_t  bytes,
-                                adpcm_rate_t  rate,
-                                adpcm_out_t   out_mode)
+/* Blocking ADPCM playback using IOCS ADPCM output call.
+ * Returns number of bytes played on success, or -1 on error.
+ */
+static inline long adpcm_play_blocking(const void   *src,
+                                       adpcm_size_t  bytes,
+                                       adpcm_rate_t  rate,
+                                       adpcm_out_t   out_mode)
 {
   unsigned short mode;
 
