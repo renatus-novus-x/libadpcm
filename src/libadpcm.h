@@ -33,21 +33,21 @@ typedef enum {
   ADPCM_OUT_STEREO = 3  /* mono to both left and right */
 } adpcm_out_t;
 
-/* Return approximate sampling frequency in Hz for a given rate. */
+/* Return hardware-based sampling frequency in Hz for a given rate. */
 static inline unsigned long adpcm_rate_hz(adpcm_rate_t rate)
 {
   switch (rate) {
   case ADPCM_RATE_3K9:
-    return 3900UL;
+    return 3906UL;   /* 4MHz / 1024 ->  3.906 kHz */
   case ADPCM_RATE_5K2:
-    return 5200UL;
+    return 5208UL;   /* 4MHz / 768  ->  5.208 kHz */
   case ADPCM_RATE_7K8:
-    return 7800UL;
+    return 7813UL;   /* 4MHz / 512  ->  7.813 kHz */
   case ADPCM_RATE_10K4:
-    return 10400UL;
+    return 10417UL;  /* 4MHz / 384  -> 10.417 kHz */
   case ADPCM_RATE_15K6:
   default:
-    return 15600UL;
+    return 15625UL;  /* 4MHz / 256  = 15.625 kHz */
   }
 }
 
