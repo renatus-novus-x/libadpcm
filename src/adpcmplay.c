@@ -1,7 +1,7 @@
-/* adpcmplay.c - Simple ADPCM player using libadpcm.h
+/* adpcmplay.c - Non-blocking ADPCM player using libadpcm.h
  *
  * Usage:
- *   adpcmplay filename [rate] [out]
+ *   adpcmplay.x filename [rate] [out]
  *
  *   rate:
  *     0 = 3.9kHz
@@ -25,8 +25,17 @@
 static void print_usage(const char *prog)
 {
   printf("Usage: %s filename [rate] [out]\n", prog);
-  printf("  rate: 0=3.9kHz 1=5.2kHz 2=7.8kHz 3=10.4kHz 4=15.6kHz (default 4)\n");
-  printf("  out : 0=off 1=left 2=right 3=stereo (default 3)\n");
+  printf("  rate:\n");
+  printf("    0 = 3.9kHz\n");
+  printf("    1 = 5.2kHz\n");
+  printf("    2 = 7.8kHz\n");
+  printf("    3 = 10.4kHz\n");
+  printf("    4 = 15.6kHz (default)\n");
+  printf("  out:\n");
+  printf("    0 = off\n");
+  printf("    1 = left\n");
+  printf("    2 = right\n");
+  printf("    3 = stereo (default)\n");
 }
 
 static adpcm_rate_t parse_rate(const char *s)
@@ -68,6 +77,7 @@ int main(int argc, char *argv[])
   adpcm_rate_t  rate = ADPCM_RATE_15K6;
   adpcm_out_t   out  = ADPCM_OUT_STEREO;
   long          played;
+  unsigned long busy_count = 0;
 
   if (argc < 2) {
     print_usage(argv[0]);
@@ -124,13 +134,11 @@ int main(int argc, char *argv[])
 
   fclose(fp);
 
-  printf("Playing '%s' (%ld bytes), rate=%lu Hz, out=%d...\n",
+  printf("Non-blocking play: '%s' (%ld bytes), rate=%lu Hz, out=%d\n",
          filename,
          file_size,
          adpcm_rate_hz(rate),
          (int)out);
-
-  printf("Starting non-blocking playback.\n");
 
   played = adpcm_start_play(buffer,
                             (adpcm_size_t)file_size,
@@ -142,13 +150,17 @@ int main(int argc, char *argv[])
     return 1;
   }
 
-  printf("Playing... (polling adpcm_is_busy(), do other work here)\n");
+  printf("Playing... 0");
+  fflush(stdout);
+
   while (adpcm_is_busy()) {
-    /* TODO: handle other tasks such as communication here. */
+    ++busy_count;
+    printf("\rPlaying... %lu", busy_count);
+    fflush(stdout);
   }
-  printf("Playback finished.\n");
+
+  printf("\nPlayback finished.\n");
 
   free(buffer);
-  printf("Done.\n");
   return 0;
 }

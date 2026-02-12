@@ -66,29 +66,49 @@ static inline unsigned short adpcm_make_mode(adpcm_rate_t rate,
 {
   unsigned short mode = 0;
 
-  /* bit10-8: sampling rate code */
-  mode |= (unsigned short)(((unsigned short)rate & 0x7u) << 8);
+  if (rate < ADPCM_RATE_3K9) {
+    rate = ADPCM_RATE_3K9;
+  } else if (rate > ADPCM_RATE_15K6) {
+    rate = ADPCM_RATE_15K6;
+  }
 
-  /* bit1-0: output / monitor mode */
-  mode |= (unsigned short)((unsigned short)out_mode & 0x3u);
+  mode |= (unsigned short)((rate & 0x7) << 8);
+
+  switch (out_mode) {
+  case ADPCM_OUT_OFF:
+  case ADPCM_OUT_LEFT:
+  case ADPCM_OUT_RIGHT:
+  case ADPCM_OUT_STEREO:
+    mode |= (unsigned short)out_mode;
+    break;
+  default:
+    mode |= (unsigned short)ADPCM_OUT_STEREO;
+    break;
+  }
 
   return mode;
 }
 
-/* Return non-zero if ADPCM device is busy (recording or playing). */
+/* Poll ADPCM busy status using IOCS ADPCMSNS.
+ * Returns non-zero if ADPCM is active, 0 if idle.
+ */
 static inline int adpcm_is_busy(void)
 {
-  long st = _iocs_adpcmsns();
-  return (st != 0L);
+  long status = _iocs_adpcmsns();
+  return (status != 0L);
 }
 
-/* Force stop of ADPCM (recording or playback). */
+/* Stop any running ADPCM operation using IOCS ADPCMMOD. */
 static inline void adpcm_stop(void)
 {
-  /* 0: stop ADPCM input/output */
-  _iocs_adpcmmod(0);
+  _iocs_adpcmmod(0L);
 }
 
+/* Non-blocking ADPCM record:
+ *   - Starts ADPCM input and returns immediately.
+ *   - Returns number of bytes requested on success, or -1 on error.
+ *   - Use adpcm_is_busy() to poll completion.
+ */
 static inline long adpcm_start_record(void        *dst,
                                       adpcm_size_t bytes,
                                       adpcm_rate_t rate,
@@ -101,12 +121,16 @@ static inline long adpcm_start_record(void        *dst,
   }
 
   mode = adpcm_make_mode(rate, monitor);
-
   _iocs_adpcminp(dst, mode, (long)bytes);
 
   return (long)bytes;
 }
 
+/* Non-blocking ADPCM playback:
+ *   - Starts ADPCM output and returns immediately.
+ *   - Returns number of bytes requested on success, or -1 on error.
+ *   - Use adpcm_is_busy() to poll completion.
+ */
 static inline long adpcm_start_play(const void   *src,
                                     adpcm_size_t bytes,
                                     adpcm_rate_t rate,
@@ -119,14 +143,12 @@ static inline long adpcm_start_play(const void   *src,
   }
 
   mode = adpcm_make_mode(rate, out_mode);
-
   _iocs_adpcmout((void *)src, mode, (long)bytes);
 
   return (long)bytes;
 }
 
-
-/* Blocking ADPCM record using IOCS ADPCM input call.
+/* Blocking ADPCM record using non-blocking start + polling.
  * Returns number of bytes written on success, or -1 on error.
  */
 static inline long adpcm_record_blocking(void        *dst,
@@ -134,9 +156,8 @@ static inline long adpcm_record_blocking(void        *dst,
                                          adpcm_rate_t rate,
                                          adpcm_out_t  monitor)
 {
-  long result;
+  long result = adpcm_start_record(dst, bytes, rate, monitor);
 
-  result = adpcm_start_record(dst, bytes, rate, monitor);
   if (result < 0) {
     return result;
   }
@@ -148,18 +169,16 @@ static inline long adpcm_record_blocking(void        *dst,
   return result;
 }
 
-
-/* Blocking ADPCM playback using IOCS ADPCM output call.
+/* Blocking ADPCM playback using non-blocking start + polling.
  * Returns number of bytes played on success, or -1 on error.
  */
 static inline long adpcm_play_blocking(const void   *src,
-                                       adpcm_size_t  bytes,
-                                       adpcm_rate_t  rate,
-                                       adpcm_out_t   out_mode)
+                                       adpcm_size_t bytes,
+                                       adpcm_rate_t rate,
+                                       adpcm_out_t  out_mode)
 {
-  long result;
+  long result = adpcm_start_play(src, bytes, rate, out_mode);
 
-  result = adpcm_start_play(src, bytes, rate, out_mode);
   if (result < 0) {
     return result;
   }
@@ -170,7 +189,6 @@ static inline long adpcm_play_blocking(const void   *src,
 
   return result;
 }
-
 
 #ifdef __cplusplus
 }

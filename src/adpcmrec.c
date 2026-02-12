@@ -1,7 +1,7 @@
-/* adpcmrec.c - Simple ADPCM recorder using libadpcm.h
+/* adpcmrec.c - Non-blocking ADPCM recorder using libadpcm.h
  *
  * Usage:
- *   adpcmrec filename seconds [rate]
+ *   adpcmrec.x filename seconds [rate]
  *
  *   rate:
  *     0 = 3.9kHz
@@ -19,7 +19,12 @@
 static void print_usage(const char *prog)
 {
   printf("Usage: %s filename seconds [rate]\n", prog);
-  printf("  rate: 0=3.9kHz 1=5.2kHz 2=7.8kHz 3=10.4kHz 4=15.6kHz (default 4)\n");
+  printf("  rate:\n");
+  printf("    0 = 3.9kHz\n");
+  printf("    1 = 5.2kHz\n");
+  printf("    2 = 7.8kHz\n");
+  printf("    3 = 10.4kHz\n");
+  printf("    4 = 15.6kHz (default)\n");
 }
 
 static adpcm_rate_t parse_rate(const char *s)
@@ -47,6 +52,7 @@ int main(int argc, char *argv[])
   void          *buffer;
   long           rec_bytes;
   FILE          *fp;
+  unsigned long  busy_count = 0;
 
   if (argc < 3) {
     print_usage(argv[0]);
@@ -71,11 +77,11 @@ int main(int argc, char *argv[])
     return 1;
   }
 
-  printf("Recording %u second(s), approx %lu bytes, rate=%lu Hz...\n",
+  printf("Non-blocking record: %u second(s), approx %lu bytes, rate=%lu Hz\n",
          seconds,
          (unsigned long)bytes,
          adpcm_rate_hz(rate));
-  printf("Starting non-blocking record. Speak into the microphone.\n");
+  printf("Speak into the microphone.\n");
 
   rec_bytes = adpcm_start_record(buffer, bytes, rate, ADPCM_OUT_STEREO);
   if (rec_bytes < 0) {
@@ -84,11 +90,16 @@ int main(int argc, char *argv[])
     return 1;
   }
 
-  printf("Recording... (polling adpcm_is_busy(), do other work here)\n");
+  printf("Recording... 0");
+  fflush(stdout);
+
   while (adpcm_is_busy()) {
-    /* TODO: handle other tasks such as communication here. */
+    ++busy_count;
+    printf("\rRecording... %lu", busy_count);
+    fflush(stdout);
   }
-  printf("Recording finished.\n");
+
+  printf("\nRecording finished.\n");
 
   fp = fopen(filename, "wb");
   if (fp == NULL) {
