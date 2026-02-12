@@ -89,13 +89,10 @@ static inline void adpcm_stop(void)
   _iocs_adpcmmod(0);
 }
 
-/* Blocking ADPCM record using IOCS ADPCM input call.
- * Returns number of bytes written on success, or -1 on error.
- */
-static inline long adpcm_record_blocking(void        *dst,
-                                         adpcm_size_t bytes,
-                                         adpcm_rate_t rate,
-                                         adpcm_out_t  monitor)
+static inline long adpcm_start_record(void        *dst,
+                                      adpcm_size_t bytes,
+                                      adpcm_rate_t rate,
+                                      adpcm_out_t  monitor)
 {
   unsigned short mode;
 
@@ -107,20 +104,13 @@ static inline long adpcm_record_blocking(void        *dst,
 
   _iocs_adpcminp(dst, mode, (long)bytes);
 
-  while (adpcm_is_busy()) {
-    /* busy wait until ADPCM input is finished */
-  }
-
   return (long)bytes;
 }
 
-/* Blocking ADPCM playback using IOCS ADPCM output call.
- * Returns number of bytes played on success, or -1 on error.
- */
-static inline long adpcm_play_blocking(const void   *src,
-                                       adpcm_size_t  bytes,
-                                       adpcm_rate_t  rate,
-                                       adpcm_out_t   out_mode)
+static inline long adpcm_start_play(const void   *src,
+                                    adpcm_size_t bytes,
+                                    adpcm_rate_t rate,
+                                    adpcm_out_t  out_mode)
 {
   unsigned short mode;
 
@@ -132,12 +122,55 @@ static inline long adpcm_play_blocking(const void   *src,
 
   _iocs_adpcmout((void *)src, mode, (long)bytes);
 
+  return (long)bytes;
+}
+
+
+/* Blocking ADPCM record using IOCS ADPCM input call.
+ * Returns number of bytes written on success, or -1 on error.
+ */
+static inline long adpcm_record_blocking(void        *dst,
+                                         adpcm_size_t bytes,
+                                         adpcm_rate_t rate,
+                                         adpcm_out_t  monitor)
+{
+  long result;
+
+  result = adpcm_start_record(dst, bytes, rate, monitor);
+  if (result < 0) {
+    return result;
+  }
+
+  while (adpcm_is_busy()) {
+    /* busy wait until ADPCM input is finished */
+  }
+
+  return result;
+}
+
+
+/* Blocking ADPCM playback using IOCS ADPCM output call.
+ * Returns number of bytes played on success, or -1 on error.
+ */
+static inline long adpcm_play_blocking(const void   *src,
+                                       adpcm_size_t  bytes,
+                                       adpcm_rate_t  rate,
+                                       adpcm_out_t   out_mode)
+{
+  long result;
+
+  result = adpcm_start_play(src, bytes, rate, out_mode);
+  if (result < 0) {
+    return result;
+  }
+
   while (adpcm_is_busy()) {
     /* busy wait until ADPCM output is finished */
   }
 
-  return (long)bytes;
+  return result;
 }
+
 
 #ifdef __cplusplus
 }
