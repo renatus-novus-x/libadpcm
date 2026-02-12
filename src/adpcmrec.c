@@ -75,14 +75,20 @@ int main(int argc, char *argv[])
          seconds,
          (unsigned long)bytes,
          adpcm_rate_hz(rate));
-  printf("Speak into the microphone.\n");
+  printf("Starting non-blocking record. Speak into the microphone.\n");
 
-  rec_bytes = adpcm_record_blocking(buffer, bytes, rate, ADPCM_OUT_STEREO);
+  rec_bytes = adpcm_start_record(buffer, bytes, rate, ADPCM_OUT_STEREO);
   if (rec_bytes < 0) {
-    printf("adpcm_record_blocking() failed\n");
+    printf("adpcm_start_record() failed\n");
     free(buffer);
     return 1;
   }
+
+  printf("Recording... (polling adpcm_is_busy(), do other work here)\n");
+  while (adpcm_is_busy()) {
+    /* TODO: handle other tasks such as communication here. */
+  }
+  printf("Recording finished.\n");
 
   fp = fopen(filename, "wb");
   if (fp == NULL) {

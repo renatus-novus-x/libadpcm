@@ -130,15 +130,23 @@ int main(int argc, char *argv[])
          adpcm_rate_hz(rate),
          (int)out);
 
-  played = adpcm_play_blocking(buffer,
-                               (adpcm_size_t)file_size,
-                               rate,
-                               out);
+  printf("Starting non-blocking playback.\n");
+
+  played = adpcm_start_play(buffer,
+                            (adpcm_size_t)file_size,
+                            rate,
+                            out);
   if (played < 0) {
-    printf("adpcm_play_blocking() failed\n");
+    printf("adpcm_start_play() failed\n");
     free(buffer);
     return 1;
   }
+
+  printf("Playing... (polling adpcm_is_busy(), do other work here)\n");
+  while (adpcm_is_busy()) {
+    /* TODO: handle other tasks such as communication here. */
+  }
+  printf("Playback finished.\n");
 
   free(buffer);
   printf("Done.\n");
